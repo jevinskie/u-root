@@ -1,5 +1,6 @@
 #!/bin/sh
 
+echo starting... >&2
 mkdir /run
 mount -t tmpfs -o size=128m -o mode=755 tmpfs /run
 mkdir /tmpfs
@@ -11,4 +12,6 @@ mount -t devtmpfs -o mode=755 -o rw,nosuid udev /rootfs/dev
 mount -t proc -o nodev,noexec,nosuid proc /rootfs/proc
 mount -t sysfs -o nodev,noexec,nosuid sysfs /rootfs/sys
 cd /rootfs
+echo execing switch_root... >&2
 exec switch_root . /usr/lib/systemd/systemd --user --show-status --log-target=console --log-level=debug --log-color
+exec wtf... >&2
