@@ -14,7 +14,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/u-root/u-root/pkg/libinit"
 )
@@ -32,6 +34,8 @@ var (
 )
 
 func main() {
+	log.Println("printing init args:")
+	log.Println(strings.Join(os.Args, " ! "))
 	flag.Parse()
 
 	log.Printf("Welcome to u-root!")
@@ -45,13 +49,16 @@ func main() {
 	log.SetPrefix("init: ")
 
 	if *verbose {
+		log.Println("verbose mode enabled")
 		debug = log.Printf
+	} else {
+		log.Println("verbose mode disabled")
 	}
 
 	// Before entering an interactive shell, decrease the loglevel because
 	// spamming non-critical logs onto the shell frustrates users. The logs
 	// are still accessible through kernel logs buffers (on most kernels).
-	quiet()
+	// quiet()
 
 	libinit.SetEnv()
 	libinit.CreateRootfs()
@@ -61,6 +68,11 @@ func main() {
 	// It returns an initCmds struct derived from kernel-specific information
 	// to be used in the rest of init.
 	ic := osInitGo()
+
+	// libinit.RunCommands(ulog.KernelLog.Printf, exec.Command("/bbin/ls", "-lhR", "/"))
+	// libinit.RunCommands(ulog.KernelLog.Printf, exec.Command("/bbin/ls", "-lhR", "/"))
+	// libinit.RunCommands(debug, exec.Command("/bbin/mount", "2>&1 > /dev/kmsg"))
+	libinit.RunCommands(debug, exec.Command("/bin/sh", "-c '/bbin/mount 2>&1 > /dev/kmsg'"))
 
 	cmdCount := libinit.RunCommands(debug, ic.cmds...)
 	if cmdCount == 0 {

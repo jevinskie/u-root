@@ -20,7 +20,7 @@ import (
 func quiet() {
 	if !*verbose {
 		// Only messages more severe than "notice" are printed.
-		if err := ulog.KernelLog.SetConsoleLogLevel(ulog.KLogNotice); err != nil {
+		if err := ulog.KernelLog.SetConsoleLogLevel(ulog.KLogDebug); err != nil {
 			log.Printf("Could not set log level: %v", err)
 		}
 	}
@@ -51,7 +51,12 @@ func osInitGo() *initCmds {
 	// we can't start it in its own namespace. I just love systemd.
 	systemd, present := initFlags["systemd"]
 	systemdEnabled, boolErr := strconv.ParseBool(systemd)
+	log.Printf("systemd enabled: %t present: %t", systemdEnabled, present)
+	log.Printf("before boolError")
+	log.Println(boolErr)
+	log.Printf("after boolError")
 	if present && boolErr == nil && systemdEnabled {
+		log.Printf("execing /inito...")
 		if err := syscall.Exec("/inito", []string{"/inito"}, os.Environ()); err != nil {
 			log.Printf("Lucky you, systemd failed: %v", err)
 		}
