@@ -87,7 +87,7 @@ func RunCommands(debug func(string, ...interface{}), commands ...*exec.Cmd) int 
 			var s unix.WaitStatus
 			var r unix.Rusage
 			if p, err := unix.Wait4(-1, &s, 0, &r); p == cmd.Process.Pid {
-				debug("Shell exited, exit status %d", s.ExitStatus())
+				debug("Shell PID %d (I'm PID %d) exited, exit status %d", p, os.Getpid(), s.ExitStatus())
 				break
 			} else if p != -1 {
 				debug("Reaped PID %d, exit status %d", p, s.ExitStatus())

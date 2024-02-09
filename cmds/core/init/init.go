@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/u-root/u-root/pkg/libinit"
+	"github.com/u-root/u-root/pkg/ulog"
 )
 
 // initCmds has all the bits needed to continue
@@ -33,7 +34,15 @@ var (
 	debug   = func(string, ...interface{}) {}
 )
 
+func kern_debug(s string, args ...interface{}) {
+	ulog.KernelLog.Print(s)
+	ulog.KernelLog.Print(args...)
+	ulog.KernelLog.Print("\n!!!\n")
+}
+
 func main() {
+	ulog.KernelLog.SetLogLevel(ulog.KLogDebug)
+	ulog.KernelLog.SetConsoleLogLevel(ulog.KLogDebug)
 	log.Println("printing init args:")
 	log.Println(strings.Join(os.Args, " ! "))
 	flag.Parse()
@@ -72,7 +81,8 @@ func main() {
 	// libinit.RunCommands(ulog.KernelLog.Printf, exec.Command("/bbin/ls", "-lhR", "/"))
 	// libinit.RunCommands(ulog.KernelLog.Printf, exec.Command("/bbin/ls", "-lhR", "/"))
 	// libinit.RunCommands(debug, exec.Command("/bbin/mount", "2>&1 > /dev/kmsg"))
-	libinit.RunCommands(debug, exec.Command("/bin/sh", "-c '/bbin/mount 2>&1 > /dev/kmsg'"))
+	libinit.RunCommands(kern_debug, exec.Command("/bbin/mount"))
+	libinit.RunCommands(kern_debug, &exec.Cmd{Path: "/bbin/mount", Args: []string{}})
 
 	cmdCount := libinit.RunCommands(debug, ic.cmds...)
 	if cmdCount == 0 {
