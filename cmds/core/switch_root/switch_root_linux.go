@@ -46,7 +46,7 @@ func main() {
 	newRoot := flag.Args()[0]
 	init := flag.Args()[1]
 
-	if err := mount.SwitchRoot(newRoot, init); err != nil {
+	if err := mount.SwitchRoot(newRoot, init, flag.Args()[2]...); err != nil {
 		log.Fatalf("switch_root failed %v\n", err)
 	}
 }

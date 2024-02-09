@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/sys/unix"
 )
@@ -161,12 +162,12 @@ func SameFilesystem(path1, path2 string) (bool, error) {
 // It moves special mounts (dev, proc, sys, run) to the new directory, then
 // does a chroot, moves the root mount to the new directory and finally
 // DELETES EVERYTHING in the old root and execs the given init.
-func SwitchRoot(newRootDir string, init string) error {
+func SwitchRoot(newRootDir string, init string, args ...string) error {
 	err := newRoot(newRootDir)
 	if err != nil {
 		return err
 	}
-	return execInit(init)
+	return execInit(init, args...)
 }
 
 // newRoot is the "first half" of SwitchRoot - that is, it creates special mounts
@@ -206,9 +207,10 @@ func newRoot(newRootDir string) error {
 // execInit is generally only useful as part of SwitchRoot or similar.
 // It exec's the given binary in place of the current binary, necessary so that
 // the new binary can be pid 1.
-func execInit(init string) error {
-	log.Printf("switch_root: executing init")
-	if err := unix.Exec(init, []string{init}, []string{}); err != nil {
+func execInit(init string, args ...string) error {
+	fullArgs := append([]string{init}, args...)
+	log.Printf("switch_root: executing init '%s' args: '%s'", init, strings.Join(args, " "))
+	if err := unix.Exec(init, fullArgs, []string{}); err != nil {
 		return fmt.Errorf("switch_root: exec failed %v", err)
 	}
 	return nil
