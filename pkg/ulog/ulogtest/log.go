@@ -18,3 +18,8 @@ type Logger struct {
 func (tl Logger) Printf(format string, v ...interface{}) {
 	tl.TB.Logf(format, v...)
 }
+
+// Print formats according the default formats for v and prints to a unit test's log.
+func (tl Logger) Print(v ...interface{}) {
+	tl.TB.Log(v...)
+}
