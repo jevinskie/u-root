@@ -27,18 +27,31 @@ func quiet() {
 }
 
 func isSystemdEnabled() bool {
-	// systemd is "special". If we are supposed to run systemd, we're
-	// going to exec, and if we're going to exec, we're done here.
-	// systemd uber alles.
 	initFlags := cmdline.GetInitFlagMap()
 
-	// systemd gets upset when it discovers it isn't really process 1, so
-	// we can't start it in its own namespace. I just love systemd.
 	systemd, present := initFlags["systemd"]
-	systemdEnabled, boolErr := strconv.ParseBool(systemd)
-	log.Printf("systemd enabled: %t present: %t boolErr: %v", systemdEnabled, present, boolErr)
-	if present && boolErr == nil && systemdEnabled {
-		return true
+	if present {
+		systemdEnabled, boolErr := strconv.ParseBool(systemd)
+		if boolErr != nil {
+			log.Printf("Failed parsing systemd '%s' error: %v", systemd, boolErr)
+			return false
+		}
+		return systemdEnabled
+	}
+	return false
+}
+
+func isRootfsNetbootEnabled() bool {
+	initFlags := cmdline.GetInitFlagMap()
+
+	rootfsNetboot, present := initFlags["rootfs_netboot"]
+	if present {
+		rootfsNetbootEnabled, boolErr := strconv.ParseBool(rootfsNetboot)
+		if boolErr != nil {
+			log.Printf("Failed parsing rootfs_netboot '%s' error: %v", rootfsNetboot, boolErr)
+			return false
+		}
+		return rootfsNetbootEnabled
 	}
 	return false
 }

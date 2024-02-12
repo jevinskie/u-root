@@ -181,6 +181,11 @@ var (
 		Mount{Source: "cgroup", Target: "/sys/fs/cgroup/hugetlb", FSType: "cgroup", Opts: "hugetlb"},
 		Mount{Source: "cgroup", Target: "/sys/fs/cgroup/perf_event", FSType: "cgroup", Opts: "perf_event"},
 	}
+
+	NetbootNamespace = []Creator{
+		Dir{Name: "/rootfs_tmp", Mode: 0o777},
+		Dir{Name: "/rootfs", Mode: 0o777},
+	}
 )
 
 func goBin() string {
@@ -237,6 +242,12 @@ func CreateRootfs() {
 	systemdEnabled, boolErr := strconv.ParseBool(systemd)
 	if !present || boolErr != nil || !systemdEnabled {
 		Create(CgroupsNamespace, true)
+	}
+
+	rootfsNetboot, present := initFlags["rootfs_netboot"]
+	rootfsNetbootEnabled, boolErr := strconv.ParseBool(rootfsNetboot)
+	if present && boolErr == nil && rootfsNetbootEnabled {
+		Create(NetbootNamespace, false)
 	}
 }
 

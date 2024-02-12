@@ -98,6 +98,9 @@ func main() {
 	systemdEnabled := isSystemdEnabled()
 	log.Printf("systemdEnabled: %t", systemdEnabled)
 
+	rootfsNetbootEnabled := isRootfsNetbootEnabled()
+	log.Printf("rootfsNetbootEnabled: %t", rootfsNetbootEnabled)
+
 	print_mounts()
 
 	if *rootfs_url != "" {
@@ -124,6 +127,10 @@ func main() {
 		}
 		log.Printf("size of %v is %d", *rootfs_url, sz)
 
+		if !rootfsNetbootEnabled {
+			log.Println("uroot.initflags doesn't have 'rootfs_netboot=1' in it, don't have a needed /rootfs_tmp or /rootfs")
+			goto rootfs_exec_failed
+		}
 	} else {
 		log.Println("rootfs URL not specified")
 	}
