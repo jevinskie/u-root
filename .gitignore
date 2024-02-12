@@ -16,6 +16,7 @@ integration/coverage/
 # Folders
 _obj
 _test
+/uncpio
 
 # Architecture specific extensions/prefixes
 *.[568vq]

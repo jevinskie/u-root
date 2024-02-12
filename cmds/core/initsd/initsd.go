@@ -14,9 +14,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/u-root/u-root/pkg/libinit"
+	"github.com/u-root/u-root/pkg/ulog"
 )
 
 // initCmds has all the bits needed to continue
@@ -26,32 +29,65 @@ type initCmds struct {
 }
 
 var (
-	verbose = flag.Bool("v", false, "Enable libinit debugging (includes showing commands that are run)")
-	test    = flag.Bool("test", false, "Test mode: don't try to set control tty")
-	debug   = func(string, ...interface{}) {}
+	verbose    = flag.Bool("v", false, "Enable libinit debugging (includes showing commands that are run)")
+	test       = flag.Bool("test", false, "Test mode: don't try to set control tty")
+	rootfs_url = flag.String("rootfs_url", "", "rootfs URL")
+	debug      = func(string, ...interface{}) {}
 )
 
+func kern_debug(s string, args ...interface{}) {
+	ulog.KernelLog.Print(s)
+	ulog.KernelLog.Print(args...)
+	ulog.KernelLog.Print("\n!!!\n")
+}
+
+func print_mounts() {
+	n := []string{"/proc/self/mounts", "/proc/mounts", "/etc/mtab"}
+	for _, p := range n {
+		b, err := os.ReadFile(p)
+		if err == nil {
+			log.Println(string(b))
+		} else {
+			log.Printf("Could not read %s to get namespace err: %v", p, err)
+		}
+	}
+}
+
 func main() {
+	ulog.KernelLog.SetLogLevel(ulog.KLogDebug)
+	ulog.KernelLog.SetConsoleLogLevel(ulog.KLogDebug)
+	log.Println("printing init args:")
+	log.Println(strings.Join(os.Args, " ! "))
 	flag.Parse()
 
-	log.Printf("Welcome to u-root!")
+	log.Printf("Welcome to u-root (systemd jevinskie edition!")
 	fmt.Println(`                              _`)
 	fmt.Println(`   _   _      _ __ ___   ___ | |_`)
 	fmt.Println(`  | | | |____| '__/ _ \ / _ \| __|`)
 	fmt.Println(`  | |_| |____| | | (_) | (_) | |_`)
 	fmt.Println(`   \__,_|    |_|  \___/ \___/ \__|`)
+	fmt.Println(`               SYSTEMD`)
 	fmt.Println()
 
-	log.SetPrefix("init: ")
+	log.SetPrefix("initsd: ")
 
 	if *verbose {
+		log.Println("verbose mode enabled")
 		debug = log.Printf
+	} else {
+		log.Println("verbose mode disabled")
+	}
+
+	if len(*rootfs_url) > 0 {
+		log.Printf("rootfs URL: %s", *rootfs_url)
+	} else {
+		log.Println("rootfs URL not specified")
 	}
 
 	// Before entering an interactive shell, decrease the loglevel because
 	// spamming non-critical logs onto the shell frustrates users. The logs
 	// are still accessible through kernel logs buffers (on most kernels).
-	quiet()
+	// quiet()
 
 	libinit.SetEnv()
 	libinit.CreateRootfs()
@@ -61,6 +97,8 @@ func main() {
 	// It returns an initCmds struct derived from kernel-specific information
 	// to be used in the rest of init.
 	ic := osInitGo()
+
+	print_mounts()
 
 	cmdCount := libinit.RunCommands(debug, ic.cmds...)
 	if cmdCount == 0 {
