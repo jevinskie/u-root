@@ -18,11 +18,14 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/u-root/u-root/pkg/curl"
 	"github.com/u-root/u-root/pkg/libinit"
 	"github.com/u-root/u-root/pkg/ulog"
+	"github.com/u-root/uio/uio"
+	"golang.org/x/sys/unix"
 )
 
 // initCmds has all the bits needed to continue
@@ -131,6 +134,29 @@ func main() {
 			log.Println("uroot.initflags doesn't have 'rootfs_netboot=1' in it, don't have a needed /rootfs_tmp or /rootfs")
 			goto rootfs_exec_failed
 		}
+
+		rootfs_tmpfs_sz := sz + 1048576
+		rootfs_tmpfs_mnt_err := unix.Mount("tmpfs", "/rootfs_tmp", "tmpfs", uintptr(0), fmt.Sprintf("size=%d", rootfs_tmpfs_sz))
+		if rootfs_tmpfs_mnt_err != nil {
+			log.Printf("Error mounting tmpfs of size %d bytes on /rootfs_tmp error: %v", rootfs_tmpfs_sz, rootfs_tmpfs_mnt_err)
+			goto rootfs_exec_failed
+		}
+
+		rootfs_img_fname := filepath.Base(parsedURL.Path)
+		rootfs_img_path := filepath.Join("/rootfs_tmp", rootfs_img_fname)
+
+		rootfs_img_reader, err := schemes.FetchWithoutCache(context.Background(), parsedURL)
+		if err != nil {
+			log.Printf("failed to download %v: %v", *rootfs_url, err)
+			goto rootfs_exec_failed
+		}
+
+		if err := uio.ReadIntoFile(rootfs_img_reader, rootfs_img_path); err != nil {
+			log.Printf("failed to write %v to %v", *rootfs_url, rootfs_img_path)
+			goto rootfs_exec_failed
+		}
+
+		log.Printf("netboot of %s finishing!", *rootfs_url)
 	} else {
 		log.Println("rootfs URL not specified")
 	}
