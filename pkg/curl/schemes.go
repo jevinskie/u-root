@@ -249,6 +249,23 @@ func (s Schemes) LazyFetch(u *url.URL) (FileWithCache, error) {
 	}, nil
 }
 
+// Size fetchs the file size with the given `u`. `u.Scheme` is used to
+// select the FileScheme via `s`.
+//
+// If `s` does not contain a FileScheme for `u.Scheme`, ErrNoSuchScheme is
+// returned.
+func (s Schemes) Size(ctx context.Context, u *url.URL) (int64, error) {
+	fg, ok := s[u.Scheme]
+	if !ok {
+		return -1, &URLError{URL: u, Err: ErrNoSuchScheme}
+	}
+	sz, err := fg.Size(ctx, u)
+	if err != nil {
+		return -1, &URLError{URL: u, Err: err}
+	}
+	return sz, nil
+}
+
 // TFTPClient implements FileScheme for TFTP files.
 type TFTPClient struct {
 	opts []tftp.ClientOpt

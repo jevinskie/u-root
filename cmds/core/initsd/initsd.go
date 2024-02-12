@@ -117,10 +117,12 @@ func main() {
 			"file":  &curl.LocalFileClient{},
 		}
 
-		_, err := schemes.FetchWithoutCache(context.Background(), parsedURL)
+		sz, err := schemes.Size(context.Background(), parsedURL)
 		if err != nil {
-			log.Printf("failed to download %v: %w", *rootfs_url, err)
+			log.Printf("failed to get size of %v: %v", *rootfs_url, err)
+			goto rootfs_exec_failed
 		}
+		log.Printf("size of %v is %d", *rootfs_url, sz)
 
 	} else {
 		log.Println("rootfs URL not specified")
