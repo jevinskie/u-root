@@ -26,6 +26,23 @@ func quiet() {
 	}
 }
 
+func isSystemdEnabled() bool {
+	// systemd is "special". If we are supposed to run systemd, we're
+	// going to exec, and if we're going to exec, we're done here.
+	// systemd uber alles.
+	initFlags := cmdline.GetInitFlagMap()
+
+	// systemd gets upset when it discovers it isn't really process 1, so
+	// we can't start it in its own namespace. I just love systemd.
+	systemd, present := initFlags["systemd"]
+	systemdEnabled, boolErr := strconv.ParseBool(systemd)
+	log.Printf("systemd enabled: %t present: %t boolErr: %v", systemdEnabled, present, boolErr)
+	if present && boolErr == nil && systemdEnabled {
+		return true
+	}
+	return false
+}
+
 func osInitGo() *initCmds {
 	// Backwards compatibility for the transition from uroot.nohwrng to
 	// UROOT_NOHWRNG=1 on kernel commandline.
@@ -40,26 +57,6 @@ func osInitGo() *initCmds {
 	// Install modules before exec-ing into user mode below
 	if err := libinit.InstallAllModules(); err != nil {
 		log.Println(err)
-	}
-
-	// systemd is "special". If we are supposed to run systemd, we're
-	// going to exec, and if we're going to exec, we're done here.
-	// systemd uber alles.
-	initFlags := cmdline.GetInitFlagMap()
-
-	// systemd gets upset when it discovers it isn't really process 1, so
-	// we can't start it in its own namespace. I just love systemd.
-	systemd, present := initFlags["systemd"]
-	systemdEnabled, boolErr := strconv.ParseBool(systemd)
-	log.Printf("systemd enabled: %t present: %t", systemdEnabled, present)
-	log.Printf("before boolError")
-	log.Println(boolErr)
-	log.Printf("after boolError")
-	if present && boolErr == nil && systemdEnabled {
-		log.Printf("execing /inito...")
-		if err := syscall.Exec("/inito", []string{"/inito"}, os.Environ()); err != nil {
-			log.Printf("Lucky you, systemd failed: %v", err)
-		}
 	}
 
 	// Allows passing args to uinit via kernel parameters, for example:

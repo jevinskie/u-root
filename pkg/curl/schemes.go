@@ -65,6 +65,7 @@ type FileScheme interface {
 	// returning an io.ReaderAt that fetchs the file.
 	Fetch(ctx context.Context, u *url.URL) (io.ReaderAt, error)
 	FetchWithoutCache(ctx context.Context, u *url.URL) (io.Reader, error)
+	Size(ctx context.Context, u *url.URL) (int64, error)
 }
 
 var (
@@ -277,6 +278,23 @@ func tftpFetch(_ context.Context, t *TFTPClient, u *url.URL) (io.Reader, error) 
 	return r, nil
 }
 
+func tftpSize(_ context.Context, t *TFTPClient, u *url.URL) (int64, error) {
+	// TODO(hugelgupf): These clients are basically stateless, except for
+	// the options. Figure out whether you actually have to re-establish
+	// this connection every time. Audit the TFTP library.
+	c, err := tftp.NewClient(t.opts...)
+	if err != nil {
+		return -1, err
+	}
+
+	r, err := c.Get(u.String())
+	if err != nil {
+		return -1, err
+	}
+
+	return r.Size()
+}
+
 // Fetch implements FileScheme.Fetch for TFTP.
 func (t *TFTPClient) Fetch(ctx context.Context, u *url.URL) (io.ReaderAt, error) {
 	r, err := tftpFetch(ctx, t, u)
@@ -289,6 +307,11 @@ func (t *TFTPClient) Fetch(ctx context.Context, u *url.URL) (io.ReaderAt, error)
 // FetchWithoutCache implements FileScheme.FetchWithoutCache for TFTP.
 func (t *TFTPClient) FetchWithoutCache(ctx context.Context, u *url.URL) (io.Reader, error) {
 	return tftpFetch(ctx, t, u)
+}
+
+// Size implements FileScheme.Size for TFTP.
+func (t *TFTPClient) Size(ctx context.Context, u *url.URL) (int64, error) {
+	return tftpSize(ctx, t, u)
 }
 
 // RetryTFTP retries downloads if the error does not contain FILE_NOT_FOUND.
@@ -427,6 +450,22 @@ func httpFetch(ctx context.Context, c *http.Client, u *url.URL) (io.Reader, erro
 	return resp.Body, nil
 }
 
+func httpSize(ctx context.Context, c *http.Client, u *url.URL) (int64, error) {
+	req, err := http.NewRequestWithContext(ctx, "HEAD", u.String(), nil)
+	if err != nil {
+		return -1, err
+	}
+	resp, err := c.Do(req)
+	if err != nil {
+		return -1, err
+	}
+
+	if resp.StatusCode != 200 {
+		return -1, &HTTPClientCodeError{ErrStatusNotOk, resp.StatusCode}
+	}
+	return resp.ContentLength, nil
+}
+
 // Fetch implements FileScheme.Fetch for HTTP.
 func (h HTTPClient) Fetch(ctx context.Context, u *url.URL) (io.ReaderAt, error) {
 	r, err := httpFetch(ctx, h.c, u)
@@ -439,6 +478,15 @@ func (h HTTPClient) Fetch(ctx context.Context, u *url.URL) (io.ReaderAt, error) 
 // FetchWithoutCache implements FileScheme.FetchWithoutCache for HTTP.
 func (h HTTPClient) FetchWithoutCache(ctx context.Context, u *url.URL) (io.Reader, error) {
 	return httpFetch(ctx, h.c, u)
+}
+
+// Size implements FileScheme.Size for HTTP.
+func (h HTTPClient) Size(ctx context.Context, u *url.URL) (int64, error) {
+	sz, err := httpSize(ctx, h.c, u)
+	if err != nil {
+		return -1, err
+	}
+	return sz, nil
 }
 
 // RetryOr returns a DoRetry function that returns true if any one of fn return
@@ -510,4 +558,13 @@ func (lfs LocalFileClient) Fetch(_ context.Context, u *url.URL) (io.ReaderAt, er
 // FetchWithoutCache implements FileScheme.FetchWithoutCache for LocalFile.
 func (lfs LocalFileClient) FetchWithoutCache(_ context.Context, u *url.URL) (io.Reader, error) {
 	return os.Open(filepath.Clean(u.Path))
+}
+
+// Size implements FileScheme.Size for LocalFile.
+func (lfs LocalFileClient) Size(_ context.Context, u *url.URL) (int64, error) {
+	fi, err := os.Stat(filepath.Clean(u.Path))
+	if err != nil {
+		return -1, err
+	}
+	return fi.Size(), nil
 }

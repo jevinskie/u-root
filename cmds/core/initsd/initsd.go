@@ -11,13 +11,16 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
 
+	"github.com/u-root/u-root/pkg/curl"
 	"github.com/u-root/u-root/pkg/libinit"
 	"github.com/u-root/u-root/pkg/ulog"
 )
@@ -42,11 +45,11 @@ func kern_debug(s string, args ...interface{}) {
 }
 
 func print_mounts() {
-	n := []string{"/proc/self/mounts", "/proc/mounts", "/etc/mtab"}
+	n := []string{"/proc/mounts"}
 	for _, p := range n {
 		b, err := os.ReadFile(p)
 		if err == nil {
-			log.Println(string(b))
+			log.Printf("mounts:\n%s", string(b))
 		} else {
 			log.Printf("Could not read %s to get namespace err: %v", p, err)
 		}
@@ -54,13 +57,13 @@ func print_mounts() {
 }
 
 func main() {
-	ulog.KernelLog.SetLogLevel(ulog.KLogDebug)
-	ulog.KernelLog.SetConsoleLogLevel(ulog.KLogDebug)
+	// ulog.KernelLog.SetLogLevel(ulog.KLogDebug)
+	// ulog.KernelLog.SetConsoleLogLevel(ulog.KLogDebug)
 	log.Println("printing init args:")
 	log.Println(strings.Join(os.Args, " ! "))
 	flag.Parse()
 
-	log.Printf("Welcome to u-root (systemd jevinskie edition!")
+	log.Printf("Welcome to u-root (systemd jevinskie edition)!")
 	fmt.Println(`                              _`)
 	fmt.Println(`   _   _      _ __ ___   ___ | |_`)
 	fmt.Println(`  | | | |____| '__/ _ \ / _ \| __|`)
@@ -78,12 +81,6 @@ func main() {
 		log.Println("verbose mode disabled")
 	}
 
-	if len(*rootfs_url) > 0 {
-		log.Printf("rootfs URL: %s", *rootfs_url)
-	} else {
-		log.Println("rootfs URL not specified")
-	}
-
 	// Before entering an interactive shell, decrease the loglevel because
 	// spamming non-critical logs onto the shell frustrates users. The logs
 	// are still accessible through kernel logs buffers (on most kernels).
@@ -98,7 +95,38 @@ func main() {
 	// to be used in the rest of init.
 	ic := osInitGo()
 
+	systemdEnabled := isSystemdEnabled()
+	log.Printf("systemdEnabled: %t", systemdEnabled)
+
 	print_mounts()
+
+	if *rootfs_url != "" {
+		log.Printf("rootfs URL: %s", *rootfs_url)
+		parsedURL, parseUrlErr := url.Parse(*rootfs_url)
+		if parseUrlErr != nil {
+			log.Printf("Error parsing rootfs URL: %v", parseUrlErr)
+			goto rootfs_exec_failed
+		}
+		log.Printf("parsedURL: %v", parsedURL)
+		schemes := curl.Schemes{
+			"tftp": curl.DefaultTFTPClient,
+			"http": curl.DefaultHTTPClient,
+
+			// curl.DefaultSchemes doesn't support HTTPS by default.
+			"https": curl.DefaultHTTPClient,
+			"file":  &curl.LocalFileClient{},
+		}
+
+		_, err := schemes.FetchWithoutCache(context.Background(), parsedURL)
+		if err != nil {
+			log.Printf("failed to download %v: %w", *rootfs_url, err)
+		}
+
+	} else {
+		log.Println("rootfs URL not specified")
+	}
+
+rootfs_exec_failed:
 
 	cmdCount := libinit.RunCommands(debug, ic.cmds...)
 	if cmdCount == 0 {
