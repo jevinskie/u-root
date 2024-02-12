@@ -23,6 +23,7 @@ import (
 
 	"github.com/u-root/u-root/pkg/curl"
 	"github.com/u-root/u-root/pkg/libinit"
+	"github.com/u-root/u-root/pkg/mount/loop"
 	"github.com/u-root/u-root/pkg/ulog"
 	"github.com/u-root/uio/uio"
 	"golang.org/x/sys/unix"
@@ -57,6 +58,17 @@ func print_mounts() {
 			log.Printf("Could not read %s to get namespace err: %v", p, err)
 		}
 	}
+}
+
+func loopSetup(filename string) (loopDevice string, err error) {
+	loopDevice, err = loop.FindDevice()
+	if err != nil {
+		return "", err
+	}
+	if err := loop.SetFile(loopDevice, filename); err != nil {
+		return "", err
+	}
+	return loopDevice, nil
 }
 
 func main() {
@@ -153,6 +165,18 @@ func main() {
 
 		if err := uio.ReadIntoFile(rootfs_img_reader, rootfs_img_path); err != nil {
 			log.Printf("failed to write %v to %v", *rootfs_url, rootfs_img_path)
+			goto rootfs_exec_failed
+		}
+
+		loop_dev, err := loopSetup(rootfs_img_path)
+		if err != nil {
+			log.Printf("Error setting loop device: %v", err)
+			goto rootfs_exec_failed
+		}
+
+		rootfs_mnt_err := unix.Mount(loop_dev, "/rootfs", "squashfs", uintptr(0), "")
+		if rootfs_mnt_err != nil {
+			log.Printf("Error mounting rootfs image '%s' /rootfs error: %v", rootfs_img_path, rootfs_tmpfs_mnt_err)
 			goto rootfs_exec_failed
 		}
 
