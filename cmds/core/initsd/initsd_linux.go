@@ -56,6 +56,28 @@ func isRootfsNetbootEnabled() bool {
 	return false
 }
 
+type RootfsNetbootInitPathError struct {
+	What string
+}
+
+func (e RootfsNetbootInitPathError) Error() string {
+	return e.What
+}
+
+func rootfsNetbootInitPath() (rootfsNetbootInitPath string, err error) {
+	initFlags := cmdline.GetInitFlagMap()
+
+	if !isRootfsNetbootEnabled() {
+		log.Println("checking uroot.initflags for rootfs_netboot_init_path but rootfs_netboot=1 is not set!")
+	}
+
+	rootfsNetbootInitPath, present := initFlags["rootfs_netboot_init_path"]
+	if present {
+		return rootfsNetbootInitPath, nil
+	}
+	return "", RootfsNetbootInitPathError{"rootfs_netboot_init_path not present in uroot.initflags"}
+}
+
 func osInitGo() *initCmds {
 	// Backwards compatibility for the transition from uroot.nohwrng to
 	// UROOT_NOHWRNG=1 on kernel commandline.

@@ -23,6 +23,7 @@ import (
 
 	"github.com/u-root/u-root/pkg/curl"
 	"github.com/u-root/u-root/pkg/libinit"
+	"github.com/u-root/u-root/pkg/mount"
 	"github.com/u-root/u-root/pkg/mount/loop"
 	"github.com/u-root/u-root/pkg/ulog"
 	"github.com/u-root/uio/uio"
@@ -177,6 +178,17 @@ func main() {
 		rootfs_mnt_err := unix.Mount(loop_dev, "/rootfs", "squashfs", uintptr(0), "")
 		if rootfs_mnt_err != nil {
 			log.Printf("Error mounting rootfs image '%s' /rootfs error: %v", rootfs_img_path, rootfs_tmpfs_mnt_err)
+			goto rootfs_exec_failed
+		}
+
+		initPath, err := rootfsNetbootInitPath()
+		if err != nil {
+			log.Printf("Error getting rootfs init path: %v", err)
+			goto rootfs_exec_failed
+		}
+
+		if err := mount.SwitchRoot("/rootfs", initPath); err != nil {
+			log.Printf("switch_root failed %v", err)
 			goto rootfs_exec_failed
 		}
 
